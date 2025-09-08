@@ -13,7 +13,6 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
-import androidx.core.graphics.toColorInt
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.updatePadding
@@ -59,7 +58,7 @@ class MainActivity : ComponentActivity() {
         // Initialize MapView
         mapView = MapView(this).apply { id = View.generateViewId() }
 
-        // Apply modern insets padding
+        // Apply system bar padding
         ViewCompat.setOnApplyWindowInsetsListener(mapView) { view, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             view.updatePadding(top = systemBars.top, bottom = systemBars.bottom)
@@ -74,7 +73,7 @@ class MainActivity : ComponentActivity() {
             )
         )
 
-        // Circular locate button
+        // Circular Locate Me button
         val locateButton = ImageButton(this).apply {
             id = View.generateViewId()
             setImageResource(android.R.drawable.ic_menu_mylocation)
@@ -113,7 +112,6 @@ class MainActivity : ComponentActivity() {
             if (granted) {
                 Toast.makeText(this, "Location permissions granted!", Toast.LENGTH_SHORT).show()
                 setupLocationService()
-                enableLocationComponent()
             } else {
                 Toast.makeText(this, "Location permissions denied!", Toast.LENGTH_SHORT).show()
             }
@@ -125,15 +123,20 @@ class MainActivity : ComponentActivity() {
         )
         requestPermissionsLauncher.launch(requiredPermissions)
 
-        // Initial camera
-        mapView.mapboxMap.setCamera(
-            CameraOptions.Builder()
-                .center(Point.fromLngLat(-98.0, 39.5))
-                .pitch(0.0)
-                .zoom(2.0)
-                .bearing(0.0)
-                .build()
-        )
+        // Load custom style properly
+        mapView.getMapboxMap().loadStyleUri(
+            "mapbox://styles/slick16/cmf9xecrz003201sdgschbnwy"
+        ) { style ->
+            Log.d("UJNavigator", "Custom style loaded successfully")
+            // Safe to enable location component and set camera after style loaded
+            enableLocationComponent()
+            mapView.getMapboxMap().setCamera(
+                CameraOptions.Builder()
+                    .center(Point.fromLngLat(-98.0, 39.5))
+                    .zoom(2.0)
+                    .build()
+            )
+        }
     }
 
     private fun enableLocationComponent() {
@@ -176,12 +179,6 @@ class MainActivity : ComponentActivity() {
             }
 
             locationProvider?.addLocationObserver(locationObserver, Looper.getMainLooper())
-
-            locationProvider?.getLastLocation { loc ->
-                loc?.let {
-                    Log.d("UJNavigator", "Last known location: ${it.latitude}, ${it.longitude}")
-                }
-            }
         } else {
             Log.e("UJNavigator", "Failed to get device location provider")
         }
@@ -190,7 +187,6 @@ class MainActivity : ComponentActivity() {
     private fun moveCameraToUser() {
         locationProvider?.getLastLocation { loc ->
             loc?.let {
-                // Use Mapbox v10+ animation API
                 mapView.camera.flyTo(
                     CameraOptions.Builder()
                         .center(Point.fromLngLat(it.longitude, it.latitude))
